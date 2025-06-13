@@ -1,0 +1,58 @@
+# face_recognition_api_example.py
+import azure.cognitive.services.face as face
+from azure.cognitive.services.face import FaceClient
+from msrest.authentication import CognitiveServicesCredentials
+
+# Your API credentials
+FACE_API_KEY = "<your_api_key>"
+FACE_API_ENDPOINT = "<your_api_endpoint>"
+
+# Person Group IDs
+PERSON_GROUP_ID = "<your_person_group_id>"
+
+# Person's IDs (generated after adding person to person group)
+PERSON_ID = "<known_person_id>"
+
+# File path to the photo you want to identify
+PHOTO_FILE = "input.jpg"
+
+
+def recognize_known_person(photo_file):
+    """Detect and identify face against a person group."""
+    # Initialize face client
+    face_client = FaceClient(FACE_API_ENDPOINT, CognitiveServicesCredentials(FACE_API_KEY))
+
+    # Detect faces in photo
+    detections = face_client.face.detect(with_recognition_model='recognition_04',
+                                         detection_model='detection_01',
+                                         return_face_id=True,
+                                         return_recognition_model=False,
+                                         return_face_landmarks=False,
+                                         return_face_attributes=None,
+                                         image=open(photo_file, "rb"))
+
+    face_ids = [face.face_id for face in detections]
+
+    if not face_ids:
+        print("No face detected.")
+        return
+
+    # Identify against person group
+    identify_result = face_client.face.identify(
+        face_ids=face_ids,
+        person_group_id=PERSON_GROUP_ID,
+        max_num_candidates_return=1,
+        confidence_threshold=0.7
+    )
+
+    for res in identify_result:
+        if res.candidates:
+            candidate = res.candidates[0]
+            person = face_client.person_group_person.get(PERSON_GROUP_ID, candidate.person_id)
+            print(f"Recognized person: {person.name} with confidence {candidate.confidence}")
+        else:
+            print("No matching person found.")
+
+
+if __name__ == "__main__":
+    recognize_known_person(PHOTO_FILE)
